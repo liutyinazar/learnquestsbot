@@ -1,0 +1,149 @@
+import os
+import telebot
+from dotenv import load_dotenv
+from database.config import conn, cur
+from users.users import CREATE_TABLE_QUERY
+from keyboard.keyboard import Keyboard as K
+from keyboard.message import Message as M
+from admin.admin import check_admin, check_users
+from learn.learn import check_language
+
+load_dotenv()
+
+TOKEN = os.environ.get("TOKEN")
+
+bot = telebot.TeleBot(TOKEN)
+
+
+@bot.message_handler(func=lambda message: M.MAIN_MENU in message.text)
+@bot.message_handler(commands=["help", "start"])
+def start_bot(message):
+    # Створюємо таблицю, якщо вона не існує
+    cur.execute(CREATE_TABLE_QUERY)
+    conn.commit()
+
+    chat_id = message.chat.id
+    username = message.chat.username
+
+    # Перевіряємо наявність користувача в таблиці
+    cur.execute("SELECT * FROM users WHERE chat_id = %s", (chat_id,))
+    user_row = cur.fetchone()
+
+    if user_row is None:
+        # Додавання нового користувача в таблицю
+        cur.execute(
+            "INSERT INTO users (chat_id, username) VALUES (%s, %s)", (chat_id, username)
+        )
+        conn.commit()
+        bot.send_message(
+            message.chat.id,
+            f"Привіт {username}!.\nОбери галузь яку ви плануєте вивчати сьогодні",
+            reply_markup=K.menu(),
+        )
+    else:
+        # Перевірка на зміну імені користувача
+        if user_row[2] != username:
+            cur.execute(
+                "UPDATE users SET username = %s WHERE chat_id = %s", (username, chat_id)
+            )
+            conn.commit()
+            bot.send_message(
+                message.chat.id,
+                f"Вітаю знову, {username}! Твоє ім'я було оновлено.\nОбери галузь яку ви плануєте вивчати сьогодні",
+                reply_markup=K.menu(),
+            )
+        else:
+            bot.send_message(
+                message.chat.id,
+                f"Вітаю знову, {username}!\nОбери галузь яку ви плануєте вивчати сьогодні",
+                reply_markup=K.menu(),
+            )
+
+
+@bot.message_handler(func=lambda message: os.environ.get("PASSWORD") in message.text)
+def admin_panel(message):
+    if check_admin(cur, message.chat.id, message) is None:
+        bot.send_message(
+            message.chat.id,
+            f"{M.NOT_ADMIN}",
+            reply_markup=K.menu(),
+        )
+    else:
+        bot.send_message(
+            message.chat.id,
+            f"Ви ввійшли в адмін панель",
+            reply_markup=K.admin_menu(),
+        )
+
+
+@bot.message_handler(func=lambda message: M.USER in message.text)
+def users_list(message):
+    if check_admin(cur, message.chat.id, message) is None:
+        bot.send_message(
+            message.chat.id,
+            f"{M.NOT_ADMIN}",
+            reply_markup=K.menu(),
+        )
+    else:
+        result = check_users(cur)
+        bot.send_message(
+            message.chat.id,
+            f"Ось усі користувачі боту",
+            reply_markup=K.admin_menu(),
+        )
+        for i in result:
+            bot.send_message(
+                message.chat.id,
+                f"USERNAME: {i[2]}",
+            )
+
+
+@bot.message_handler(func=lambda message: M.NOT_QUESTION in message.text)
+def not_question(message):
+    bot.send_message(
+        message.chat.id,
+        "Не проблема, повернемось назад до вибору",
+        reply_markup=K.menu(),
+    )
+
+
+@bot.message_handler(func=lambda message: M.ADD_QUESTION in message.text)
+def add_question(message):
+    if check_admin(cur, message.chat.id, message) is None:
+        bot.send_message(
+            message.chat.id,
+            f"{M.NOT_ADMIN}",
+            reply_markup=K.menu(),
+        )
+    else:
+        bot.send_message(
+            message.chat.id, "Оберіть мову програмування", reply_markup=K.add_question()
+        )
+
+
+@bot.message_handler(
+    func=lambda message: M.JAVA in message.text
+    or M.PYTHON in message.text
+    or M.JS in message.text
+    or M.CPLUS in message.text
+)
+def learn_start(message):
+    language = check_language(message=message.text)
+    if language is not None:
+        bot.send_message(
+            message.chat.id,
+            f"{M.CHOICE} {message.text}",
+            reply_markup=K.question(language),
+        )
+    else:
+        bot.send_message(message.chat.id, reply_markup=K.menu())
+
+
+@bot.message_handler(func=lambda message: True)
+def unknown_message(message):
+    bot.send_message(
+        message.chat.id, f"Хмм... 🤔\nНе розумію вас 🙁", reply_markup=K.menu()
+    )
+
+
+bot.infinity_polling()
