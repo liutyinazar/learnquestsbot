@@ -5,7 +5,7 @@ from database.config import conn, cur
 from users.users import CREATE_TABLE_QUERY
 from keyboard.keyboard import Keyboard as K
 from keyboard.message import Message as M
-from admin.admin import check_admin, check_users
+from admin.admin import check_admin, check_users, check_questions
 from learn.learn import check_language
 
 load_dotenv()
@@ -75,6 +75,9 @@ def admin_panel(message):
             reply_markup=K.admin_menu(),
         )
 
+@bot.message_handler(func=lambda message: M.QUESTION in message.text)
+def progress(message):
+    bot.send_message(message.chat.id, f'Ваш прогрес у навчанні:')
 
 @bot.message_handler(func=lambda message: M.USER in message.text)
 def users_list(message):
@@ -97,6 +100,23 @@ def users_list(message):
                 f"USERNAME: {i[2]}",
             )
 
+@bot.message_handler(func=lambda message: M.QUESTION in message.text)
+def show_questions(message):
+    if check_admin(cur, message.chat.id, message) is None:
+        bot.send_message(
+            message.chat.id,
+            f"{M.NOT_ADMIN}",
+            reply_markup=K.menu(),
+        )
+    else:
+        bot.send_message(message.chat.id, f'Ось всі доступні запитання:\n')
+        questions_list = check_questions(cur)
+        formated_list = [item[1] for item in questions_list]
+        all_questions = "\n".join(formated_list)
+        bot.send_message(
+            message.chat.id,
+            f"Ось усі запитання:\n{all_questions}"
+        )
 
 @bot.message_handler(func=lambda message: M.NOT_QUESTION in message.text)
 def not_question(message):

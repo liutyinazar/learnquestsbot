@@ -21,17 +21,18 @@ class Keyboard:
                 M.JS,
                 M.CPLUS,
             ),
+            (M.PROGRESS,),
         )
 
     @classmethod
     def admin_menu(cls):
         return cls(
+            (M.MAIN_MENU,),
+            (M.USER,),
             (
                 M.QUESTION,
                 M.ADD_QUESTION,
             ),
-            (M.USER,),
-            (M.MAIN_MENU,),
         )
 
     @classmethod
@@ -52,9 +53,10 @@ class Keyboard:
             return cls(
                 (M.NOT_QUESTION,),
             )
-        buttons = [(_[1],) for _ in questions] if questions else []
+        buttons = [_[1] for _ in questions] if questions else []
+        print(buttons)
 
         return cls(
             (M.MAIN_MENU,),
-            *buttons,
+            (*buttons,),
         )

@@ -3,7 +3,7 @@ from database.config import cur
 
 # GET REQUEST TO GET DATA
 def learn(language):
-    cur.execute(f"SELECT * FROM questions WHERE theme_id = {language}")
+    cur.execute(f"SELECT * FROM theme WHERE language_id = {language}")
     questions = cur.fetchall()  # LIST
     return questions
 
