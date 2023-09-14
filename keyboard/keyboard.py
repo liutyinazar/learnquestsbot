@@ -1,6 +1,6 @@
 from telebot.types import ReplyKeyboardMarkup
 from keyboard.message import Message as M
-from learn.learn import learn
+from learn.learn import learn_theme, learn_question
 
 
 class Keyboard:
@@ -38,6 +38,7 @@ class Keyboard:
     @classmethod
     def add_question(cls):
         return cls(
+            (M.MAIN_MENU,),
             (
                 M.PYTHON[:-2],
                 M.JAVA[:-2],
@@ -48,15 +49,40 @@ class Keyboard:
 
     @classmethod
     def question(cls, language):
-        questions = learn(language)
+        questions = learn_question(language)
         if not questions:
             return cls(
                 (M.NOT_QUESTION,),
             )
         buttons = [_[1] for _ in questions] if questions else []
-        print(buttons)
+
+        # Розбиваємо кнопки на пари
+        button_pairs = [buttons[i : i + 2] for i in range(0, len(buttons), 2)]
+
+        # Переводимо пари кнопок в кортежі
+        button_tuples = tuple(tuple(pair) for pair in button_pairs)
 
         return cls(
             (M.MAIN_MENU,),
-            (*buttons,),
+            *button_tuples,
+        )
+
+    @classmethod
+    def theme(cls, language):
+        questions = learn_theme(language)
+        if not questions:
+            return cls(
+                (M.NOT_QUESTION,),
+            )
+        buttons = [_[1] for _ in questions] if questions else []
+
+        # Розбиваємо кнопки на пари
+        button_pairs = [buttons[i : i + 2] for i in range(0, len(buttons), 2)]
+
+        # Переводимо пари кнопок в кортежі
+        button_tuples = tuple(tuple(pair) for pair in button_pairs)
+
+        return cls(
+            (M.MAIN_MENU,),
+            *button_tuples,
         )

@@ -2,11 +2,11 @@ import os
 import telebot
 from dotenv import load_dotenv
 from database.config import conn, cur
-from users.users import CREATE_TABLE_QUERY
 from keyboard.keyboard import Keyboard as K
 from keyboard.message import Message as M
+from learn.learn import check_language, get_theme, get_questions
+from users.users import CREATE_TABLE_QUERY, change_last_language
 from admin.admin import check_admin, check_users, check_questions
-from learn.learn import check_language
 
 load_dotenv()
 
@@ -75,9 +75,32 @@ def admin_panel(message):
             reply_markup=K.admin_menu(),
         )
 
-@bot.message_handler(func=lambda message: M.QUESTION in message.text)
+
+@bot.message_handler(
+    func=lambda message: any(theme[1] in message.text for theme in get_theme())
+)
+def theme_select(message):
+    # Отримуємо список тем з бази даних
+    themes = [theme[1] for theme in get_theme()]
+    language_id = check_language(select_language)
+
+    # Перевіряємо, чи містить текст повідомлення якусь з тем
+    for theme in themes:
+        if theme in message.text:
+            bot.send_message(
+                message.chat.id,
+                f"{M.CHOICE} тему {theme}",
+                reply_markup=K.question(language_id),
+            )
+            break  # Зупиняємо перевірку, коли тему знайдено
+
+    # get_questions(language_id,theme)
+
+
+@bot.message_handler(func=lambda message: M.PROGRESS in message.text)
 def progress(message):
-    bot.send_message(message.chat.id, f'Ваш прогрес у навчанні:')
+    bot.send_message(message.chat.id, f"Ваш прогрес у навчанні:")
+
 
 @bot.message_handler(func=lambda message: M.USER in message.text)
 def users_list(message):
@@ -100,6 +123,7 @@ def users_list(message):
                 f"USERNAME: {i[2]}",
             )
 
+
 @bot.message_handler(func=lambda message: M.QUESTION in message.text)
 def show_questions(message):
     if check_admin(cur, message.chat.id, message) is None:
@@ -109,14 +133,12 @@ def show_questions(message):
             reply_markup=K.menu(),
         )
     else:
-        bot.send_message(message.chat.id, f'Ось всі доступні запитання:\n')
+        bot.send_message(message.chat.id, f"Ось всі доступні запитання:\n")
         questions_list = check_questions(cur)
         formated_list = [item[1] for item in questions_list]
         all_questions = "\n".join(formated_list)
-        bot.send_message(
-            message.chat.id,
-            f"Ось усі запитання:\n{all_questions}"
-        )
+        bot.send_message(message.chat.id, f"Ось усі запитання:\n{all_questions}")
+
 
 @bot.message_handler(func=lambda message: M.NOT_QUESTION in message.text)
 def not_question(message):
@@ -149,11 +171,14 @@ def add_question(message):
 )
 def learn_start(message):
     language = check_language(message=message.text)
+    global select_language
+    select_language = message.text
     if language is not None:
+        change_last_language(message, cur, language, conn)
         bot.send_message(
             message.chat.id,
             f"{M.CHOICE} {message.text}",
-            reply_markup=K.question(language),
+            reply_markup=K.theme(language),
         )
     else:
         bot.send_message(message.chat.id, reply_markup=K.menu())
@@ -161,9 +186,7 @@ def learn_start(message):
 
 @bot.message_handler(func=lambda message: True)
 def unknown_message(message):
-    bot.send_message(
-        message.chat.id, f"Хмм... 🤔\nНе розумію вас 🙁", reply_markup=K.menu()
-    )
+    bot.send_message(message.chat.id, f"Хмм... 🤔\nНе розумію вас 🙁")
 
 
 bot.infinity_polling()
