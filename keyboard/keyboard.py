@@ -86,3 +86,13 @@ class Keyboard:
             (M.MAIN_MENU,),
             *button_tuples,
         )
+
+    @classmethod
+    def corrent_question(cls, answers):
+        answer_buttons = [_[2:6] for _ in answers]  # Вибираємо кнопки з кожного елемента answers
+        buttons = [_ for _ in answer_buttons] if answer_buttons else []  # Вибираємо тексти кнопок
+
+        return cls(
+            (M.MAIN_MENU,),
+            *buttons,
+        )

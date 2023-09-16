@@ -4,9 +4,22 @@ from dotenv import load_dotenv
 from database.config import conn, cur
 from keyboard.keyboard import Keyboard as K
 from keyboard.message import Message as M
-from learn.learn import check_language, get_theme, get_questions
-from users.users import CREATE_TABLE_QUERY, change_last_language
+from learn.learn import (
+    check_language,
+    get_theme,
+    get_theme_id,
+    get_all_questions,
+    get_questions_info,
+)
 from admin.admin import check_admin, check_users, check_questions
+from users.blocked import check_is_blocked
+from users.users import (
+    CREATE_TABLE_QUERY,
+    change_last_language,
+    get_user_progress,
+    change_last_theme,
+    change_question_in_db,
+)
 
 load_dotenv()
 
@@ -24,40 +37,48 @@ def start_bot(message):
 
     chat_id = message.chat.id
     username = message.chat.username
-
-    # Перевіряємо наявність користувача в таблиці
-    cur.execute("SELECT * FROM users WHERE chat_id = %s", (chat_id,))
-    user_row = cur.fetchone()
-
-    if user_row is None:
-        # Додавання нового користувача в таблицю
-        cur.execute(
-            "INSERT INTO users (chat_id, username) VALUES (%s, %s)", (chat_id, username)
-        )
-        conn.commit()
+    defend = check_is_blocked(message, cur)
+    if defend is not None:
         bot.send_message(
             message.chat.id,
-            f"Привіт {username}!.\nОбери галузь яку ви плануєте вивчати сьогодні",
-            reply_markup=K.menu(),
+            f"Привіт {username}!.\nТи не можеш користуватись цим ботом, по причині: {defend[2]}",
         )
     else:
-        # Перевірка на зміну імені користувача
-        if user_row[2] != username:
+        # Перевіряємо наявність користувача в таблиці
+        cur.execute("SELECT * FROM users WHERE chat_id = %s", (chat_id,))
+        user_row = cur.fetchone()
+
+        if user_row is None:
+            # Додавання нового користувача в таблицю
             cur.execute(
-                "UPDATE users SET username = %s WHERE chat_id = %s", (username, chat_id)
+                "INSERT INTO users (chat_id, username) VALUES (%s, %s)",
+                (chat_id, username),
             )
             conn.commit()
             bot.send_message(
                 message.chat.id,
-                f"Вітаю знову, {username}! Твоє ім'я було оновлено.\nОбери галузь яку ви плануєте вивчати сьогодні",
+                f"Привіт {username}!.\nОбери галузь яку ви плануєте вивчати сьогодні",
                 reply_markup=K.menu(),
             )
         else:
-            bot.send_message(
-                message.chat.id,
-                f"Вітаю знову, {username}!\nОбери галузь яку ви плануєте вивчати сьогодні",
-                reply_markup=K.menu(),
-            )
+            # Перевірка на зміну імені користувача
+            if user_row[2] != username:
+                cur.execute(
+                    "UPDATE users SET username = %s WHERE chat_id = %s",
+                    (username, chat_id),
+                )
+                conn.commit()
+                bot.send_message(
+                    message.chat.id,
+                    f"Вітаю знову, {username}! Твоє ім'я було оновлено.\nОбери галузь яку ви плануєте вивчати сьогодні",
+                    reply_markup=K.menu(),
+                )
+            else:
+                bot.send_message(
+                    message.chat.id,
+                    f"Вітаю знову, {username}!\nОбери галузь яку ви плануєте вивчати сьогодні",
+                    reply_markup=K.menu(),
+                )
 
 
 @bot.message_handler(func=lambda message: os.environ.get("PASSWORD") in message.text)
@@ -94,12 +115,46 @@ def theme_select(message):
             )
             break  # Зупиняємо перевірку, коли тему знайдено
 
-    # get_questions(language_id,theme)
+    theme_id = get_theme_id(language_id, theme)
+    change_last_theme(message, cur, theme_id, conn)
 
+
+@bot.message_handler(
+    func=lambda message: any(
+        question[1] in message.text for question in get_all_questions()
+    )
+)
+def current_question(message):
+    chat_id = message.chat.id
+    question = get_questions_info(cur, message.text)
+    change_question_in_db(chat_id, question[0][0], cur, conn )
+    # global correct_answer 
+    # correct_answer = question[0][6]
+    bot.send_message(
+        message.chat.id,
+        f"{message.text}\n",
+        reply_markup=K.corrent_question(question),
+    )
+
+# @bot.message_handler(
+#     func=lambda message: any(
+#         question[1] in message.text for question in get_all_questions()
+#     )
+# )
 
 @bot.message_handler(func=lambda message: M.PROGRESS in message.text)
 def progress(message):
-    bot.send_message(message.chat.id, f"Ваш прогрес у навчанні:")
+    all_questions = get_all_questions()
+    correct_answer = get_user_progress(message, cur)
+
+    interest = (len(all_questions) / correct_answer) * 100
+    if correct_answer is None or correct_answer == 0:
+        bot.send_message(message.chat.id, f"Ви ще не почали відповідати на питання 🙁")
+    else:
+        bot.send_message(
+            message.chat.id,
+            f"Ваш прогрес у навчанні\nКількість правильно пройдених запитань - {correct_answer}, так тримати 🤩\nВи пройшли {round(interest)}% від усіх питань 😎",
+        )
 
 
 @bot.message_handler(func=lambda message: M.USER in message.text)

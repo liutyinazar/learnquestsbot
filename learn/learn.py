@@ -28,6 +28,13 @@ def check_language(message):
 
     return language
 
+def get_theme_id(language_id, theme_title):
+    cur.execute(
+        f"SELECT * FROM theme WHERE language_id = {language_id} AND title = '{theme_title}'",
+    )
+    theme_id = cur.fetchone()
+
+    return theme_id[0]
 
 def get_theme():
     cur.execute(f"SELECT * FROM theme")
@@ -42,3 +49,15 @@ def get_questions(id, theme):
     cur.execute(f"SELECT * FROM question WHERE language_id = {id} AND theme_id = {theme_id}")
     questions= cur.fetchall()
     return questions
+
+def get_all_questions():
+    cur.execute(f"SELECT * FROM question")
+    all_questions = cur.fetchall()
+
+    return all_questions
+
+def get_questions_info(cur, title):
+    cur.execute(f"SELECT * FROM question WHERE title = '{title}'")
+    question_data = cur.fetchall()
+    return question_data
+
