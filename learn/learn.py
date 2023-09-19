@@ -61,3 +61,8 @@ def get_questions_info(cur, title):
     question_data = cur.fetchall()
     return question_data
 
+def get_current_answer(cur, message):
+    chat_id = message.chat.id
+    cur.execute(f"SELECT current_answer FROM users WHERE chat_id = {chat_id}")
+    current_answer = cur.fetchone()  # Використовуємо fetchone() замість fetchall()
+    return current_answer[0] if current_answer else None

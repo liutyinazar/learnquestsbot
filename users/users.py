@@ -42,3 +42,22 @@ def change_question_in_db(chat_id, question_id, cur, connect):
     )
     connect.commit()
 
+
+def add_current_answer(cur, connect, chat_id, array):
+    cur.execute(
+        "UPDATE users SET current_answer = current_answer || %s WHERE chat_id = %s",
+        (array, chat_id),
+    )
+    connect.commit()
+
+def convert_answer(answer):
+    if answer == 'a':
+        answer = 0
+    elif answer == 'b':
+        answer = 1
+    elif answer == 'c':
+        answer = 2
+    elif answer == 'd':
+        answer = 3
+
+    return answer

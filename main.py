@@ -10,6 +10,7 @@ from learn.learn import (
     get_theme_id,
     get_all_questions,
     get_questions_info,
+    get_current_answer,
 )
 from admin.admin import check_admin, check_users, check_questions
 from users.blocked import check_is_blocked
@@ -19,6 +20,8 @@ from users.users import (
     get_user_progress,
     change_last_theme,
     change_question_in_db,
+    add_current_answer,
+    convert_answer,
 )
 
 load_dotenv()
@@ -127,20 +130,33 @@ def theme_select(message):
 def current_question(message):
     chat_id = message.chat.id
     question = get_questions_info(cur, message.text)
-    change_question_in_db(chat_id, question[0][0], cur, conn )
-    # global correct_answer 
-    # correct_answer = question[0][6]
+    change_question_in_db(chat_id, question[0][0], cur, conn)
+    all_answer = question[0][2:7]
+    add_current_answer(cur, conn, chat_id, list(all_answer))
     bot.send_message(
         message.chat.id,
         f"{message.text}\n",
         reply_markup=K.corrent_question(question),
     )
 
-# @bot.message_handler(
-#     func=lambda message: any(
-#         question[1] in message.text for question in get_all_questions()
-#     )
-# )
+
+@bot.message_handler(
+    func=lambda message: any(
+        answer in message.text for answer in get_current_answer(cur, message)
+    )
+    if get_current_answer(cur, message)
+    else False
+)
+def current_answer(message):
+    answer = get_current_answer(cur, message)
+    correct_answer = convert_answer(*answer[4:5])
+    if message.text == answer[correct_answer]:
+        bot.send_message(
+            message.chat.id, f"Відповідь правильна, вітаю! 🎊", reply_markup=K.menu()
+        )
+    else:
+        bot.send_message(message.chat.id, f"Відповідь не правильна, спробуйте щераз 🙁")
+
 
 @bot.message_handler(func=lambda message: M.PROGRESS in message.text)
 def progress(message):
