@@ -12,7 +12,7 @@ from learn.learn import (
     get_questions_info,
     get_current_answer,
 )
-from admin.admin import check_admin, check_users, check_questions
+from admin.admin import check_admin, check_users
 from users.blocked import check_is_blocked
 from users.users import (
     CREATE_TABLE_QUERY,
@@ -22,7 +22,10 @@ from users.users import (
     change_question_in_db,
     add_current_answer,
     convert_answer,
+    add_user_progress,
+    get_question_id,
 )
+from models.models import Question
 
 load_dotenv()
 
@@ -84,6 +87,27 @@ def start_bot(message):
                 )
 
 
+@bot.message_handler(
+    func=lambda message: M.JAVA in message.text
+    or M.PYTHON in message.text
+    or M.JS in message.text
+    or M.CPLUS in message.text
+)
+def learn_start(message):
+    language = check_language(message=message.text)
+    global select_language
+    select_language = message.text
+    if language is not None:
+        change_last_language(message, cur, language, conn)
+        bot.send_message(
+            message.chat.id,
+            f"{M.CHOICE} {message.text}",
+            reply_markup=K.theme(language),
+        )
+    else:
+        bot.send_message(message.chat.id, reply_markup=K.menu())
+
+
 @bot.message_handler(func=lambda message: os.environ.get("PASSWORD") in message.text)
 def admin_panel(message):
     if check_admin(cur, message.chat.id, message) is None:
@@ -111,15 +135,14 @@ def theme_select(message):
     # Перевіряємо, чи містить текст повідомлення якусь з тем
     for theme in themes:
         if theme in message.text:
+            theme_id = get_theme_id(language_id, theme)
+            change_last_theme(message, cur, theme_id, conn)
             bot.send_message(
                 message.chat.id,
                 f"{M.CHOICE} тему {theme}",
-                reply_markup=K.question(language_id),
+                reply_markup=K.question(language_id, theme_id),
             )
-            break  # Зупиняємо перевірку, коли тему знайдено
-
-    theme_id = get_theme_id(language_id, theme)
-    change_last_theme(message, cur, theme_id, conn)
+            break
 
 
 @bot.message_handler(
@@ -154,6 +177,8 @@ def current_answer(message):
         bot.send_message(
             message.chat.id, f"Відповідь правильна, вітаю! 🎊", reply_markup=K.menu()
         )
+        id = get_question_id(message, cur)
+        add_user_progress(message, *id, cur, conn)
     else:
         bot.send_message(message.chat.id, f"Відповідь не правильна, спробуйте щераз 🙁")
 
@@ -163,13 +188,13 @@ def progress(message):
     all_questions = get_all_questions()
     correct_answer = get_user_progress(message, cur)
 
-    interest = (len(all_questions) / correct_answer) * 100
+    interest = (correct_answer / len(all_questions)) * 100
     if correct_answer is None or correct_answer == 0:
         bot.send_message(message.chat.id, f"Ви ще не почали відповідати на питання 🙁")
     else:
         bot.send_message(
             message.chat.id,
-            f"Ваш прогрес у навчанні\nКількість правильно пройдених запитань - {correct_answer}, так тримати 🤩\nВи пройшли {round(interest)}% від усіх питань 😎",
+            f"Ваш прогрес у навчанні\nКількість правильно пройдених запитань - {correct_answer}, так тримати 🤩\nВи пройшли {round(interest,2)}% від усіх питань 😎\nЗагальна кількість питань {len(all_questions)}",
         )
 
 
@@ -205,7 +230,7 @@ def show_questions(message):
         )
     else:
         bot.send_message(message.chat.id, f"Ось всі доступні запитання:\n")
-        questions_list = check_questions(cur)
+        questions_list = Question.get_all(cur)
         formated_list = [item[1] for item in questions_list]
         all_questions = "\n".join(formated_list)
         bot.send_message(message.chat.id, f"Ось усі запитання:\n{all_questions}")
@@ -232,27 +257,6 @@ def add_question(message):
         bot.send_message(
             message.chat.id, "Оберіть мову програмування", reply_markup=K.add_question()
         )
-
-
-@bot.message_handler(
-    func=lambda message: M.JAVA in message.text
-    or M.PYTHON in message.text
-    or M.JS in message.text
-    or M.CPLUS in message.text
-)
-def learn_start(message):
-    language = check_language(message=message.text)
-    global select_language
-    select_language = message.text
-    if language is not None:
-        change_last_language(message, cur, language, conn)
-        bot.send_message(
-            message.chat.id,
-            f"{M.CHOICE} {message.text}",
-            reply_markup=K.theme(language),
-        )
-    else:
-        bot.send_message(message.chat.id, reply_markup=K.menu())
 
 
 @bot.message_handler(func=lambda message: True)

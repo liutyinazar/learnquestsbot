@@ -1,6 +1,9 @@
 from telebot.types import ReplyKeyboardMarkup
 from keyboard.message import Message as M
-from learn.learn import learn_theme, learn_question
+from learn.learn import learn_theme
+from models.models import Question
+from database.config import cur
+
 
 
 class Keyboard:
@@ -48,23 +51,18 @@ class Keyboard:
         )
 
     @classmethod
-    def question(cls, language):
-        questions = learn_question(language)
+    def question(cls, language, theme_id, chat_id):
+        questions = Question.get_all_with_language_theme(cur, language, theme_id)
         if not questions:
             return cls(
                 (M.NOT_QUESTION,),
             )
-        buttons = [_[1] for _ in questions] if questions else []
-
-        # Розбиваємо кнопки на пари
-        button_pairs = [buttons[i : i + 2] for i in range(0, len(buttons), 2)]
-
-        # Переводимо пари кнопок в кортежі
-        button_tuples = tuple(tuple(pair) for pair in button_pairs)
+        
+        buttons = [(_[1],) for _ in questions] if questions else []
 
         return cls(
             (M.MAIN_MENU,),
-            *button_tuples,
+            *buttons,
         )
 
     @classmethod
@@ -89,8 +87,9 @@ class Keyboard:
 
     @classmethod
     def corrent_question(cls, answers):
-        answer_buttons = [_[2:6] for _ in answers]  # Вибираємо кнопки з кожного елемента answers
-        buttons = [_ for _ in answer_buttons] if answer_buttons else []  # Вибираємо тексти кнопок
+        answer_buttons = [_[2:6] for _ in answers]
+        buttons = [_ for _ in answer_buttons] if answer_buttons else []
+        # print(type(buttons))
 
         return cls(
             (M.MAIN_MENU,),

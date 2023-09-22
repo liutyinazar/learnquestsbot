@@ -9,7 +9,3 @@ def check_users(cursor):
     users = cursor.fetchall()
     return users
 
-def check_questions(cursor):
-    cursor.execute("SELECT * FROM question")
-    question = cursor.fetchall()
-    return question
