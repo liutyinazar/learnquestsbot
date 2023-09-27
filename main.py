@@ -131,6 +131,7 @@ def theme_select(message):
     # Отримуємо список тем з бази даних
     themes = [theme[1] for theme in get_theme()]
     language_id = check_language(select_language)
+    chat_id = message.chat.id
 
     # Перевіряємо, чи містить текст повідомлення якусь з тем
     for theme in themes:
@@ -140,7 +141,7 @@ def theme_select(message):
             bot.send_message(
                 message.chat.id,
                 f"{M.CHOICE} тему {theme}",
-                reply_markup=K.question(language_id, theme_id),
+                reply_markup=K.question(language_id, theme_id, chat_id),
             )
             break
 
