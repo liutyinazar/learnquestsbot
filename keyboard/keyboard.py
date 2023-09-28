@@ -1,6 +1,7 @@
 from telebot.types import ReplyKeyboardMarkup
 from keyboard.message import Message as M
 from learn.learn import learn_theme
+from users.users import check_progress
 from models.models import Question
 from database.config import cur
 
@@ -52,6 +53,7 @@ class Keyboard:
 
     @classmethod
     def question(cls, language, theme_id, chat_id):
+        completed_questions = check_progress(chat_id, cur)
         questions = Question.get_all_with_language_theme(cur, language, theme_id)
         if not questions:
             return cls(
@@ -59,6 +61,12 @@ class Keyboard:
             )
         
         buttons = [(_[1],) for _ in questions] if questions else []
+
+        for i, button in enumerate(buttons):
+            if button[0] in completed_questions:
+                buttons[i] = (button[0] + " ✅ ",)
+            else:
+                buttons[i] = (button[0] + " ❓ ",)
 
         return cls(
             (M.MAIN_MENU,),

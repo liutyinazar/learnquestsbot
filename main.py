@@ -148,18 +148,18 @@ def theme_select(message):
 
 @bot.message_handler(
     func=lambda message: any(
-        question[1] in message.text for question in get_all_questions()
+        question[1] in message.text[:-2] for question in get_all_questions()
     )
 )
 def current_question(message):
     chat_id = message.chat.id
-    question = get_questions_info(cur, message.text)
+    question = get_questions_info(cur, message.text[:-2])
     change_question_in_db(chat_id, question[0][0], cur, conn)
     all_answer = question[0][2:7]
     add_current_answer(cur, conn, chat_id, list(all_answer))
     bot.send_message(
         message.chat.id,
-        f"{message.text}\n",
+        f"{message.text[:-2]}\n",
         reply_markup=K.corrent_question(question),
     )
 

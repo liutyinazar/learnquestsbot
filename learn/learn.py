@@ -53,7 +53,8 @@ def get_questions(id, theme):
 def get_all_questions():
     cur.execute(f"SELECT * FROM question")
     all_questions = cur.fetchall()
-
+    
+        
     return all_questions
 
 def get_questions_info(cur, title):

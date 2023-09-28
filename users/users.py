@@ -6,6 +6,26 @@ CREATE_TABLE_QUERY = """
     )
 """
 
+def check_progress(chat_id, cur):
+    cur.execute('SELECT id FROM users WHERE chat_id = %s', (chat_id,))
+    user_id = cur.fetchone()
+    if user_id:
+        user_id = user_id[0]  # Access the user_id value from the tuple
+        cur.execute('SELECT question_id FROM user_progress WHERE user_id = %s', (user_id,))
+        questions_id = cur.fetchall()
+        
+        questions_title = []
+
+        for question_id in questions_id:
+            cur.execute('SELECT title FROM question WHERE id = %s', (question_id[0],))
+            title = cur.fetchone()
+            if title:
+                questions_title.append(title[0])
+
+        return questions_title
+    else:
+        return []
+
 
 def change_last_language(message, cur, language_id, connect):
     chat_id = message.chat.id
